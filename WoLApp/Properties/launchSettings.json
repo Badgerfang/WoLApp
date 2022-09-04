@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "WoLApp": {
+      "commandName": "Project",
+      "commandLineArgs": "-w TestComputer"
+    }
+  }
+}
