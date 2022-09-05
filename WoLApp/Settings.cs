@@ -47,6 +47,10 @@ namespace WoLApp
         private const string NoWakeCommand = "nw";
         private const string DelayAfterWoLCommand = "dl";
         private const string BridgeCommand = "br";
+        private const string TxCommand = "tx";
+        private const string WakePortCommand = "wp";
+
+        private const string HelpCommand = "?";
 
         public static IPEndPoint RemoteServer { get; private set; }
 
@@ -86,11 +90,17 @@ namespace WoLApp
                                 case ServerLookupCommand:
                                 case DelayAfterWoLCommand:
                                 case BridgeCommand:
+                                case TxCommand:
+                                case WakePortCommand:
                                     command = cmd;
                                     break;
 
                                 case ServerModeCommand:
                                     ServerMode = true;
+                                    break;
+
+                                case HelpCommand:
+                                    DisplayHelp();
                                     break;
 
                             }
@@ -135,6 +145,15 @@ namespace WoLApp
                                     DelayAfterWoL = milliseconds;
                                 break;
 
+                            case TxCommand:
+                                if (int.TryParse(arg, out var txCount) == true && txCount > 0)
+                                    TxCount = txCount;
+                                break;
+
+                            case WakePortCommand:
+                                if (ushort.TryParse(arg, out var wakePort) == true && wakePort > 0)
+                                    WoLPort = wakePort;
+                                break;
                         }
 
                         command = null;
@@ -145,6 +164,24 @@ namespace WoLApp
 
             if (ServerMode == true && ServerName == null)
                 ServerName = Environment.MachineName;
+        }
+
+        private static void DisplayHelp()
+        {
+            Console.WriteLine($"-{PauseCommand} Pause the application before running in client/server mode.");
+            Console.WriteLine($"-{BroadcastCommand} Use a broadcast packets for Wake on Lan rather than the default of packets per NIC");
+            Console.WriteLine($"-{SeverPortCommand} <port> Specify the server port to listen on. Default 12000");
+            Console.WriteLine($"-{ServerModeCommand} Run as a server rather than a client");
+            Console.WriteLine($"-{ServerNameCommand} <name> Specify the name to use in servermode. Default is the computer's name");
+            Console.WriteLine($"-{RemoteServerCommand} <ip_address> Specify the remote server to commicate with to perform the Wake on Lan");
+            Console.WriteLine($"-{MacLookupCommand} <filename> Specify a file to use to change a name into a MAC address");
+            Console.WriteLine($"-{ServerLookupCommand} <filename> Specify a file to use to change a name into an end point");
+            Console.WriteLine($"-{WakeCommand} <wakeup_text> Wake up a computer on the current network or on another network ");
+            Console.WriteLine($"-{NoWakeCommand} Disable any Wake on Lan packets from being transmitted, (diagnostics mode)");
+            Console.WriteLine($"-{DelayAfterWoLCommand} <milliseconds> Delay for a number of milliseconds after sending a Wake on Lan to another computer, (diagnostics mode)");
+            Console.WriteLine($"-{BridgeCommand} <filename> Specify a file that defines bridges to create when in server mode");
+            Console.WriteLine($"-{TxCommand} <count> Specify the number of magic packets to transmit. Default 5");
+            Console.WriteLine($"-{WakePortCommand} <port> Specify the port to transmit the magic packet on. Default 7");
         }
     }
 }
