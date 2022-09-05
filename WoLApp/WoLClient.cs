@@ -286,6 +286,9 @@ namespace WoLApp
 
             const int ReportDurationInSeconds = 60;
 
+            if (stream != null)
+                Logger.Instance.Info($"Connected to {Remote}");
+
             while (WoLClient.CancelToken.IsCancellationRequested == false)
             {
                 while (stream == null)
@@ -312,34 +315,38 @@ namespace WoLApp
 
                 Logger.Instance.Info($"Connected to {Remote}");
 
-                var headerPlusPayload = ReadCommand();
-
-                var header = headerPlusPayload.Item1;
-
-                if (header == null)
+                for(; ;)
                 {
-                    Disconnect(true);
 
-                    if (clientType == ClientType.BridgeClientSide)
-                        continue;                                                           // As a bridge that connected to a service always reconnect
-                            
-                    WoLServer.Instance.RemoveBridge(bridgeName, this);
-                    return;
-                }
+                    var headerPlusPayload = ReadCommand();
 
-                var key = (int)header[0];
+                    var header = headerPlusPayload.Item1;
 
-                var payload = headerPlusPayload.Item2;
+                    if (header == null)
+                    {
+                        Disconnect(true);
 
-                switch (key)
-                {
-                    case WoLHelper.Wakeup:
-                        ProcessWakeup(payload);
-                        break;
+                        if (clientType == ClientType.BridgeClientSide)
+                            break;                                                              // As a bridge that connected to a service always reconnect
 
-                    default:
-                        Logger.Instance.Info($"Invalid command {key} received from bridge client {Remote}");
-                        break;
+                        WoLServer.Instance.RemoveBridge(bridgeName, this);
+                        return;
+                    }
+
+                    var key = (int)header[0];
+
+                    var payload = headerPlusPayload.Item2;
+
+                    switch (key)
+                    {
+                        case WoLHelper.Wakeup:
+                            ProcessWakeup(payload);
+                            break;
+
+                        default:
+                            Logger.Instance.Info($"Invalid command {key} received from bridge client {Remote}");
+                            break;
+                    }
                 }
             }
 
@@ -515,7 +522,10 @@ namespace WoLApp
                     var bridgeClient = WoLServer.Instance.GetBridge(remotePCName);
 
                     if (bridgeClient != null)
+                    {
+                        Logger.Instance.Info($"Relaying wakeup command {excludeRemotePC} to {bridgeClient.Remote}");
                         bridgeClient.Send(WoLHelper.Wakeup, excludeRemotePC);
+                    }
                     else
                     {
 

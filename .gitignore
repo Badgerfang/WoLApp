@@ -5,3 +5,5 @@
 /.vs
 /WoLApp/bin/Debug/net5.0
 /WoLApp/obj
+/WoLApp/Properties/launchSettings.json
+
