@@ -18,7 +18,7 @@ You want to wake up a computer on your local network but want to keep the MAC ad
 For example create a file called computers.txt with the following content
 
 ~~~~~~
-* A test computer that will never to woken up
+* A test computer that will never wake up
 TestComputer 11:11:11:11:11:11
 Computer01 00:FF:21:95:FF:DB
 ~~~~~~
@@ -29,21 +29,21 @@ WolApp -ml computers.txt -w Computer01
 
 You want to wake up the computer "Coumpter02" on another network but can only communicate with "Computer01" on that network. For this to work "Computer01" needs to run WoLApp in server mode.
 
-The following tells WoLApp to run in server mode and listen on port 12001.
+The following tells WoLApp to run in server mode and listen on port 6000.
 
-WoLApp.exe -sm -sp 6000 -ml computers.txt
+WoLApp -sm -sp 6000 -ml computers.txt
 
 As a client you need to know the IP address of "Computer01".
 
-WoLApp.exe -rs 192.168.50.01:6000 -w Computer01,Computer02
+WoLApp -rs 192.168.50.1:6000 -w Computer01,Computer02
 
 You may not want to use the computer's actual name in WoLApp so this can be changed using the -sn option.
 
-WoLApp.exe -sm -sn OFFICEAccess -sp 6000 -ml computers.txt
+WoLApp -sm -sn OFFICE-PC -sp 6000 -ml computers.txt
 
 The client's parameters also need to change so a network client is created to talk to the server running on Computer01
 
-WoLApp.exe -rs 192.168.50.1:6000 -w OfficeAccess,Computer02
+WoLApp -rs 192.168.50.1:6000 -w OFFICE-PC,Computer02
 
 ## Scenario 3
 
