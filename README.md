@@ -50,7 +50,7 @@ WoLApp -rs 192.168.50.1:6000 -w OFFICE-PC,Computer02
 The Office's computers are not accesible due to firewalls etc. However, WoLApp can still be used by configuring bridges so a computer on the office network connects to another computer, maybe at some one's home location that is running WoLApp on a Rasperry PI.
 The computer on the office network needs to create a bridge configuration file. 
 
-For example create a file call Bridges.txt containing the following content, where the IP address is the address of the PI in someone's home.
+For example create a file call Bridges.txt containing the following content, where the IP address is the IP address assigned to someone's home.
 
 ~~~~~~
 Office 80.1.1.1:6000
@@ -60,7 +60,7 @@ The computer in the office needs to run WoLApp defining the bridges
 
 WoLApp -sm -sn OFFICE-PC -br Bridges.txt -ml Computers.txt
 
-The router in someone's home needs to be updated to route port 6000 to th Raspyberry PI running WoLApp.
+The router in someone's home needs to be updated to route port 6000 to the Raspyberry PI running WoLApp.
 
 WoLApp -sm -sn PI -sp 6000
 
