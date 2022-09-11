@@ -35,6 +35,9 @@ namespace WoLApp
 
         public static int DelayAfterWoL { get; private set; }
 
+        public static bool DisableHeartbeats { get; set; }
+
+
         private const string PauseCommand = "p";
         private const string BroadcastCommand = "b";
         private const string SeverPortCommand = "sp";
@@ -49,6 +52,7 @@ namespace WoLApp
         private const string BridgeCommand = "br";
         private const string TxCommand = "tx";
         private const string WakePortCommand = "wp";
+        public const string DisableHeartbeatCommand = "dh";
 
         private const string HelpCommand = "?";
 
@@ -80,6 +84,10 @@ namespace WoLApp
 
                                 case PauseCommand:
                                     Pause = true;
+                                    break;
+
+                                case DisableHeartbeatCommand:
+                                    DisableHeartbeats = true;
                                     break;
 
                                 case WakeCommand:
@@ -181,6 +189,7 @@ namespace WoLApp
             Console.WriteLine($"-{DelayAfterWoLCommand} <milliseconds> Delay for a number of milliseconds after sending a Wake on Lan to another computer, (diagnostics mode)");
             Console.WriteLine($"-{BridgeCommand} <filename> Specify a file that defines bridges to create when in server mode");
             Console.WriteLine($"-{TxCommand} <count> Specify the number of magic packets to transmit. Default 5");
+            Console.WriteLine($"-{DisableHeartbeats} Disable the server from transmitting a heart beat over all bridge connections. Default false");
             Console.WriteLine($"-{WakePortCommand} <port> Specify the port to transmit the magic packet on. Default 7");
         }
     }

@@ -11,8 +11,9 @@ using System.Threading.Tasks;
 
 namespace WoLApp
 {
-    class WoLServer
+    class WoLServer : IDisposable
     {
+        private const int HeartbeatTimerDurationInMilliseconds = 1000;
         public static WoLServer Instance { get; } = new WoLServer();
 
         private ConcurrentDictionary<string, WoLClient> bridges = new ConcurrentDictionary<string, WoLClient>();
@@ -23,9 +24,15 @@ namespace WoLApp
 
         private Task listenTask;
 
+        private System.Timers.Timer heartbeatTimer;
+        private int heartbeatMutex;
+
+
+        private object mutex = new object();
 
 
         private CancellationTokenSource listenCancellationTokenSource;
+        private bool disposedValue;
 
         public void Start(int port)
         {
@@ -72,9 +79,17 @@ namespace WoLApp
                 {
                     foreach (var bridge in bridges)
                     {
-                        Logger.Instance.Info($"'{bridge.Key}' bridge defined as a connection to {bridge.Value}");
+                        Logger.Instance.Info($"'{bridge.Key}' bridge defined as a connection to {bridge.Value.Remote}");
                         var connectionCommands = new List<KeyValuePair<int, string>>() { new KeyValuePair<int, string>(WoLHelper.Name, bridge.Key) };
-                        var bridgeClient = new WoLClient(bridge.Value, WoLClient.ClientType.BridgeClientSide, connectionCommands);
+
+                        if (bridge.Value.Additional != null && bridge.Value.Additional.Length > 0)
+                        {
+                            if (uint.TryParse(bridge.Value.Additional[0], out var heartbeat) == true)
+                                connectionCommands.Add(new KeyValuePair<int, string>(WoLHelper.HeartbeatRequest, bridge.Value.Additional[0]));
+                        }
+
+                        var bridgeClient = new WoLClient(bridge.Value.Remote, WoLClient.ClientType.BridgeClientSide, connectionCommands);
+
                         bridgeClient.ReadBridgeCommands(bridge.Key);
                     }
                 }
@@ -163,6 +178,71 @@ namespace WoLApp
                 return client;
 
             return null;
+        }
+
+        public void StartTimer()
+        {
+            lock (mutex)
+            {
+                if (heartbeatTimer == null)
+                {
+                    heartbeatTimer = new System.Timers.Timer(HeartbeatTimerDurationInMilliseconds);
+                    heartbeatTimer.Elapsed += HeartbeatTimer_Elapsed;
+                    heartbeatTimer.Start();
+                }
+            }
+        }
+
+        private void HeartbeatTimer_Elapsed(object sender, System.Timers.ElapsedEventArgs e)
+        {
+            // Ensure only one is performed
+            if (Interlocked.Increment(ref heartbeatMutex) == 1)
+            {
+                try
+                {
+                    var heartbeatClients = bridges.Values.Where(x => x.HeartbeatRequired == true);
+
+                    foreach (var client in heartbeatClients)
+                        client.Heartbeat(HeartbeatTimerDurationInMilliseconds);
+                }
+                finally
+                {
+                    heartbeatMutex = 0;
+                }
+            }
+        }
+
+        private void Timer()
+        {
+            for (; ; )
+            {
+                WoLClient.CancelToken.WaitHandle.WaitOne(1000);
+            }
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!disposedValue)
+            {
+                if (disposing)
+                {
+                    if (heartbeatTimer != null)
+                    {
+                        heartbeatTimer.Stop();
+                        heartbeatTimer.Elapsed -= HeartbeatTimer_Elapsed;
+                        heartbeatTimer.Dispose();
+                    }
+                }
+
+                disposedValue = true;
+            }
+        }
+
+        public void Dispose()
+        {
+            // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+            Dispose(disposing: true);
+            GC.SuppressFinalize(this);
         }
     }
 }

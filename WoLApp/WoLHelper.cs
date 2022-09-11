@@ -14,6 +14,8 @@ namespace WoLApp
         internal const int Name = 1;
         internal const int Wakeup = 2;
         internal const int WakeupAck = 3;
+        internal const int HeartbeatRequest = 4;
+        internal const int Heartbeat = 5;
 
 
         /// <summary>

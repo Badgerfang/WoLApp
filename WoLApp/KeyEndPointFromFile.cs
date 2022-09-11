@@ -20,9 +20,9 @@ namespace WoLApp
         /// <remarks>
         /// Any line staring with a * is a comment line.
         /// </remarks>
-        internal static Dictionary<string, IPEndPoint> Read(string filename)
+        internal static Dictionary<string, IPEndPointInformation> Read(string filename)
         {
-            var lookup = new Dictionary<string, IPEndPoint>();
+            var lookup = new Dictionary<string, IPEndPointInformation>();
 
             foreach (string line in System.IO.File.ReadAllLines(filename))
             {
@@ -30,8 +30,15 @@ namespace WoLApp
                 {
                     var parts = line.Split();
 
-                    if (parts.Length == 2 && IPEndPoint.TryParse(parts[1], out var fileEndpoint) == true)
-                        lookup[parts[0]] = fileEndpoint;
+                    if (parts.Length >= 2 && IPEndPoint.TryParse(parts[1], out var fileEndpoint) == true)
+                    {
+                        var remote = new IPEndPointInformation() { Remote = fileEndpoint };
+
+                        if (parts.Length > 2)
+                            remote.Additional = parts.Skip(2).ToArray();
+                        
+                        lookup[parts[0]] = remote;
+                    }
                 }
             }
 

@@ -45,6 +45,13 @@ namespace WoLApp
 
                     if (cmd == null)
                         break;
+
+                    switch (cmd)
+                    {
+                        case Settings.DisableHeartbeatCommand:
+                            Settings.DisableHeartbeats = true;
+                            break;
+                    }
                 }
 
                 Shutdown();

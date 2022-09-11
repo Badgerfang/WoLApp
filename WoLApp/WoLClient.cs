@@ -14,6 +14,9 @@ namespace WoLApp
     /// </summary>
     internal class WoLClient
     {
+        private const int MinimumHeartbeatInSeconds = 5;
+        private const int HeartbeatWindowInSeconds = 10;
+
         private Queue<KeyValuePair<int, string>> commands = new Queue<KeyValuePair<int, string>>();
 
         private object mutex = new object();
@@ -60,6 +63,8 @@ namespace WoLApp
         private bool NonBridgeClient => clientType == ClientType.Background || clientType == ClientType.Foreground;
         private bool BridgeClient => clientType == ClientType.BridgeClientSide || clientType == ClientType.BridgeServerSide;
 
+        public bool HeartbeatRequired => (clientType == ClientType.BridgeServerSide && heartbeatTransmissionInMilliseconds > 0) || (clientType == ClientType.BridgeClientSide && readTimeoutInMilliseconds > 0);
+
         private Task bgTask;
 
         private Task readTask;
@@ -67,6 +72,11 @@ namespace WoLApp
         private static byte[] wakeupAck = WoLHelper.Generate(WoLHelper.WakeupAck, null);
 
         private string bridgeName;
+
+        private int heartbeatTransmissionInMilliseconds;
+        private int heartbeatCount;
+
+        private int readTimeoutInMilliseconds;
 
         internal string Remote
         {
@@ -103,7 +113,20 @@ namespace WoLApp
                 connectionPayloads = new List<byte[]>();
 
                 foreach (var connectionCommand in connectionCommands)
+                {
+                    if (connectionCommand.Key == WoLHelper.HeartbeatRequest)
+                    {
+                        switch (client)
+                        {
+                            case ClientType.BridgeClientSide:                                                                                               // Requesting the service at the other end to periodically send heart beat messages
+                                if (int.TryParse(connectionCommand.Value, out var heartbeatRequestInSeconds) == true)
+                                    readTimeoutInMilliseconds = (heartbeatRequestInSeconds + HeartbeatWindowInSeconds) * 1000;                                            // Give the transmitter a window
+                                break;
+                        }
+                    }
+
                     connectionPayloads.Add(WoLHelper.Generate(connectionCommand.Key, connectionCommand.Value));
+                }
             }
 
             clientType = client;
@@ -282,6 +305,9 @@ namespace WoLApp
         /// </summary>
         private void ReadFromBridge()
         {
+            if (readTimeoutInMilliseconds > 0)
+                WoLServer.Instance.StartTimer();                                                                // Need timer for read timeou
+
             var lastReport = DateTime.MinValue;
 
             const int ReportDurationInSeconds = 60;
@@ -314,6 +340,7 @@ namespace WoLApp
                 }
 
                 Logger.Instance.Info($"Connected to {Remote}");
+                WoLServer.Instance.AddBridge(bridgeName, this);
 
                 for(; ;)
                 {
@@ -324,12 +351,13 @@ namespace WoLApp
 
                     if (header == null)
                     {
+                        WoLServer.Instance.RemoveBridge(bridgeName, this);
+
                         Disconnect(true);
 
                         if (clientType == ClientType.BridgeClientSide)
                             break;                                                              // As a bridge that connected to a service always reconnect
 
-                        WoLServer.Instance.RemoveBridge(bridgeName, this);
                         return;
                     }
 
@@ -341,6 +369,9 @@ namespace WoLApp
                     {
                         case WoLHelper.Wakeup:
                             ProcessWakeup(payload);
+                            break;
+
+                        case WoLHelper.Heartbeat:
                             break;
 
                         default:
@@ -395,6 +426,10 @@ namespace WoLApp
                                 loop = ProcessName(payload);                                            // client could be a bridged connection
                                 break;
 
+                            case WoLHelper.HeartbeatRequest:
+                                loop = ProcessHeartbeat(payload);
+                                break;
+
                             case WoLHelper.Wakeup:
                                 ProcessWakeup(payload);
                                 loop = string.IsNullOrEmpty(bridgeName) == false;
@@ -439,6 +474,31 @@ namespace WoLApp
             return loop;
         }
 
+        private bool ProcessHeartbeat(byte[] payload)
+        {
+            bool loop = false;
+
+            if (clientType == ClientType.BridgeServerSide
+                && string.IsNullOrEmpty(bridgeName) == false
+                && heartbeatTransmissionInMilliseconds == 0)                                  // Got to have named the connection for heart beats
+            {
+                var heartbeatText = Encoding.UTF8.GetString(payload);
+
+                if (uint.TryParse(heartbeatText, out var hbDuration) == true && hbDuration >= MinimumHeartbeatInSeconds)
+                {
+                    Logger.Instance.Info($"Request to send a heart beat every {hbDuration} seconds to {Remote}");
+
+                    heartbeatTransmissionInMilliseconds = (int)hbDuration * 1000;
+                    loop = true;
+                    WoLServer.Instance.StartTimer();
+                }
+            }
+
+            return loop;
+        }
+
+
+
 
         private (byte[], byte[]) ReadCommand()
         {
@@ -449,7 +509,15 @@ namespace WoLApp
                 int length = header[1] << 8 | header[2];
 
                 var payload = Read(length);
-                return (header, payload);
+
+                if (payload != null)
+                {
+
+                    if (readTimeoutInMilliseconds > 0)
+                        Interlocked.Exchange(ref heartbeatCount, 0);    // received a command so reset the read timout
+
+                    return (header, payload);
+                }
             }
 
             return (null, null);
@@ -478,8 +546,10 @@ namespace WoLApp
                 try
                 {
                     var task = stream.ReadAsync(array, offset, remaining, WoLClient.CancelToken);
+
                     task.Wait();
 
+                    
                     int read = task.Result;
 
                     if (read <= 0)
@@ -488,9 +558,9 @@ namespace WoLApp
                     offset += read;
                     remaining -= read;
                 }
-                catch (Exception ex)
+                catch
                 {
-                    System.Diagnostics.Debug.WriteLine(ex.Message);
+                    // Connection broken etc
                     return false;
                 }
             }
@@ -628,6 +698,9 @@ namespace WoLApp
 
         protected void Disconnect(bool disconnected = false)
         {
+            if (stream == null)
+                return;
+
             if (CancelToken.IsCancellationRequested == false)
             {
                 if (clientType != ClientType.Foreground)
@@ -639,8 +712,60 @@ namespace WoLApp
 
             lock (mutex)
             {
+                stream.Socket?.Shutdown(SocketShutdown.Both);                                       // Essential for the ReadAsyn to return
                 stream?.Close();
                 stream = null;
+            }
+        }
+
+        public void Heartbeat(int milliseconds)
+        {
+            switch (clientType)
+            {
+                case ClientType.BridgeServerSide:
+                    ServerSideHeartbeat(milliseconds);
+                    break;
+
+                case ClientType.BridgeClientSide:
+                    ClientSideHeartbeat(milliseconds);
+                    break;
+            }
+        }
+
+        private void ServerSideHeartbeat(int milliseconds)
+        {
+            if (heartbeatTransmissionInMilliseconds > 0)
+            {
+                heartbeatCount += milliseconds;
+
+                if (heartbeatCount >= heartbeatTransmissionInMilliseconds)
+                {
+                    heartbeatCount = 0;
+                if (Settings.DisableHeartbeats == false)
+                    Send(WoLHelper.Heartbeat, string.Empty);
+                else
+                    Logger.Instance.Info($"Heart beat disabled for {Remote}");
+                }
+            }
+        }
+
+        private void ClientSideHeartbeat(int milliseconds)
+        {
+            if (readTimeoutInMilliseconds > 0)
+            {
+                if (stream != null)
+                {
+                    // There's a task reading from the socket and reseting the heart beat so use interlock to ensure no corruption
+                    var updatedValue = Interlocked.Add(ref heartbeatCount, milliseconds);
+
+                    if (updatedValue >= readTimeoutInMilliseconds)
+                    {
+                        Interlocked.Exchange(ref heartbeatCount, 0);
+                        Disconnect();
+                    }
+                }
+                else
+                    Interlocked.Exchange(ref heartbeatCount, 0);
             }
         }
     }

@@ -2,7 +2,7 @@
   "profiles": {
     "WoLApp": {
       "commandName": "Project",
-      "commandLineArgs": "-w TestComputer"
+      "commandLineArgs": "-sm -sp 6000 -br m:\\GitHub\\Bridges.txt -sn OFFICE-PC"
     }
   }
 }

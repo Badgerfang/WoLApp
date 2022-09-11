@@ -11,7 +11,7 @@ namespace WoLApp
     {
         public static BridgeLookup Instance { get; private set; } = new BridgeLookup();
 
-        private Dictionary<string, IPEndPoint> lookup = null;
+        private Dictionary<string, IPEndPointInformation> lookup = null;
 
         private object mutex = new object();
 
@@ -24,7 +24,7 @@ namespace WoLApp
                 Load();
 
             if (lookup.TryGetValue(computer, out var endPoint) == true)
-                return endPoint;
+                return endPoint.Remote;
 
             return null;
         }
@@ -36,7 +36,7 @@ namespace WoLApp
                 // Could have de-sceduled betweek the if and lock
                 if (lookup == null)
                 {
-                    lookup = new Dictionary<string, IPEndPoint>();
+                    lookup = new Dictionary<string, IPEndPointInformation>();
 
                     if (string.IsNullOrEmpty(Settings.BridgeLookup) == false)
                     {
@@ -54,7 +54,7 @@ namespace WoLApp
             }
         }
 
-        public List<KeyValuePair<string, IPEndPoint>> Bridges()
+        public List<KeyValuePair<string, IPEndPointInformation>> Bridges()
         {
             Load();
 

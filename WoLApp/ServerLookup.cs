@@ -14,7 +14,7 @@ namespace WoLApp
     {
         public static ServerLookup Instance { get; private set; } = new ServerLookup();
 
-        private Dictionary<string, IPEndPoint> lookup = null;
+        private Dictionary<string, IPEndPointInformation> lookup = null;
 
         private object mutex = new object();
 
@@ -38,7 +38,7 @@ namespace WoLApp
                     // Could have de-sceduled between the if and lock
                     if (lookup == null)
                     {
-                        lookup = new Dictionary<string, IPEndPoint>();
+                        lookup = new Dictionary<string, IPEndPointInformation>();
 
                         if (string.IsNullOrEmpty(Settings.ServerLookup) == false)
                         {
@@ -57,7 +57,7 @@ namespace WoLApp
             }
 
             if (lookup.TryGetValue(computer, out var endPoint) == true)
-                return endPoint;
+                return endPoint.Remote;
 
             return null;
         }
