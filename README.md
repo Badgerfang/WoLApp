@@ -50,10 +50,10 @@ WoLApp -rs 192.168.50.1:6000 -w OFFICE-PC,Computer02
 The Office's computers are not accesible due to firewalls etc. However, WoLApp can still be used by configuring bridges so a computer on the office network connects to another computer, maybe at some one's home location that is running WoLApp on a Rasperry PI.
 The computer on the office network needs to create a bridge configuration file. 
 
-For example create a file call Bridges.txt containing the following content, where the IP address is the IP address assigned to someone's home.
+For example create a file call Bridges.txt containing the following content, where the IP address is the IP address assigned to someone's home. If the optional heartbeat option is specified the server that accepts the connection will periodically send a heart beat. If the server that establishes the bridge connection does receive the heart beat it will disconnect and try to re-establish the connection.
 
 ~~~~~~
-Office 80.1.1.1:6000
+Office 80.1.1.1:6000 <optional_heartbeat_in_seconds>
 ~~~~~~
 
 The computer in the office needs to run WoLApp defining the bridges
